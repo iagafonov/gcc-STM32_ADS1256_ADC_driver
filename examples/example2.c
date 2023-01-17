@@ -1,38 +1,36 @@
 /******************************************************************************
- * Модуль:      example2.c
- * Автор:       Celeron (c) 2018
- * Назначение:  Более продвинутый пример (кусок кода из реального проекта) - 
-                реализация пользовательского интерфейса, демонстрирующего режимы работы АЦП...
+ * РњРѕРґСѓР»СЊ:      example2.c
+ * РђРІС‚РѕСЂ:       Celeron (c) 2018
+ * РќР°Р·РЅР°С‡РµРЅРёРµ:  Р‘РѕР»РµРµ РїСЂРѕРґРІРёРЅСѓС‚С‹Р№ РїСЂРёРјРµСЂ (РєСѓСЃРѕРє РєРѕРґР° РёР· СЂРµР°Р»СЊРЅРѕРіРѕ РїСЂРѕРµРєС‚Р°) -
+                СЂРµР°Р»РёР·Р°С†РёСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РёРЅС‚РµСЂС„РµР№СЃР°, РґРµРјРѕРЅСЃС‚СЂРёСЂСѓСЋС‰РµРіРѕ СЂРµР¶РёРјС‹ СЂР°Р±РѕС‚С‹ РђР¦Рџ...
  ******************************************************************************/
 
-// Замечу: в этом коде, используются также вызовы методов из библиотек наработанного мною фреймворка (драйвер дисплея, кнопок и т.п.)
-// а также, весь этот код исполняется в Потоке FreeRTOS.
-
+// Р—Р°РјРµС‡Сѓ: РІ СЌС‚РѕРј РєРѕРґРµ, РёСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ С‚Р°РєР¶Рµ РІС‹Р·РѕРІС‹ РјРµС‚РѕРґРѕРІ РёР· Р±РёР±Р»РёРѕС‚РµРє РЅР°СЂР°Р±РѕС‚Р°РЅРЅРѕРіРѕ РјРЅРѕСЋ С„СЂРµР№РјРІРѕСЂРєР° (РґСЂР°Р№РІРµСЂ РґРёСЃРїР»РµСЏ, РєРЅРѕРїРѕРє Рё С‚.Рї.)
+// Р° С‚Р°РєР¶Рµ, РІРµСЃСЊ СЌС‚РѕС‚ РєРѕРґ РёСЃРїРѕР»РЅСЏРµС‚СЃСЏ РІ РџРѕС‚РѕРєРµ FreeRTOS.
 
 //-------------------------------------
-// Экран "Тест АЦП"
+// Р­РєСЂР°РЅ "РўРµСЃС‚ РђР¦Рџ"
 
-  volatile static TDataRegistrator ADS1256_TEST_OriginalDataRegistrator = 0;
-  volatile static uint32_t         ADS1256_TEST_Counter = 0;
+volatile static TDataRegistrator ADS1256_TEST_OriginalDataRegistrator = 0;
+volatile static uint32_t ADS1256_TEST_Counter = 0;
 
-  // Добавить очередной Замер к Выборке (обертка, чтобы еще считать число замеров)
-  void ADS1256_TEST_DataRegistratorWrapper(const int32_t value)
-  {
-    ADS1256_TEST_Counter++;
-    
-    // Если подключен "регистратор данных", то отправить ему полученные данные
-    if(ADS1256_TEST_OriginalDataRegistrator)
-      (*ADS1256_TEST_OriginalDataRegistrator)(value);   
-  };
+// Р”РѕР±Р°РІРёС‚СЊ РѕС‡РµСЂРµРґРЅРѕР№ Р—Р°РјРµСЂ Рє Р’С‹Р±РѕСЂРєРµ (РѕР±РµСЂС‚РєР°, С‡С‚РѕР±С‹ РµС‰Рµ СЃС‡РёС‚Р°С‚СЊ С‡РёСЃР»Рѕ Р·Р°РјРµСЂРѕРІ)
+void ADS1256_TEST_DataRegistratorWrapper(const int32_t value)
+{
+  ADS1256_TEST_Counter++;
 
+  // Р•СЃР»Рё РїРѕРґРєР»СЋС‡РµРЅ "СЂРµРіРёСЃС‚СЂР°С‚РѕСЂ РґР°РЅРЅС‹С…", С‚Рѕ РѕС‚РїСЂР°РІРёС‚СЊ РµРјСѓ РїРѕР»СѓС‡РµРЅРЅС‹Рµ РґР°РЅРЅС‹Рµ
+  if (ADS1256_TEST_OriginalDataRegistrator)
+    (*ADS1256_TEST_OriginalDataRegistrator)(value);
+};
 
 TControlMode Control_MODE_AdcTest(void)
 {
-  // При входе в новую подсистему - сбросить статусы Кнопок и счетчики Энкодеров
+  // РџСЂРё РІС…РѕРґРµ РІ РЅРѕРІСѓСЋ РїРѕРґСЃРёСЃС‚РµРјСѓ - СЃР±СЂРѕСЃРёС‚СЊ СЃС‚Р°С‚СѓСЃС‹ РљРЅРѕРїРѕРє Рё СЃС‡РµС‚С‡РёРєРё Р­РЅРєРѕРґРµСЂРѕРІ
   keyResetStatusForAllButtons();
-  
-  // Остановить режим "SDATAC: Stop Read Data Continuous" СИНХРОННО
-  //  (Примечание: После выполнения этой функции, АЦП вновь станет доступным к управлению!)
+
+  // РћСЃС‚Р°РЅРѕРІРёС‚СЊ СЂРµР¶РёРј "SDATAC: Stop Read Data Continuous" РЎРРќРҐР РћРќРќРћ
+  //  (РџСЂРёРјРµС‡Р°РЅРёРµ: РџРѕСЃР»Рµ РІС‹РїРѕР»РЅРµРЅРёСЏ СЌС‚РѕР№ С„СѓРЅРєС†РёРё, РђР¦Рџ РІРЅРѕРІСЊ СЃС‚Р°РЅРµС‚ РґРѕСЃС‚СѓРїРЅС‹Рј Рє СѓРїСЂР°РІР»РµРЅРёСЋ!)
   ADS1256_API_StopDataContinuousModeSynchronous();
 
   static char s1[25] = {0};
@@ -42,47 +40,47 @@ TControlMode Control_MODE_AdcTest(void)
 
   ADS1256_TEST_Counter = 0;
   ADS1256_TEST_OriginalDataRegistrator = ADS1256_API_GetDataRegistrator();
-  ADS1256_API_SetDataRegistrator( ADS1256_TEST_DataRegistratorWrapper );
-  
-  int32_t value   = 0; 
+  ADS1256_API_SetDataRegistrator(ADS1256_TEST_DataRegistratorWrapper);
+
+  int32_t value = 0;
   int32_t average = 0;
-  int32_t max     = INT32_MIN;
-  int32_t min     = INT32_MAX;
-  uint8_t mode    = 0;
+  int32_t max = INT32_MIN;
+  int32_t min = INT32_MAX;
+  uint8_t mode = 0;
 
-  while(1)
+  while (1)
   {
-    
-    // Выбор П.1: Переключить Режим теста
-    if(BUTTON_HAVE_FLAG( BUTTON_MENU_PREV, BUTTON_IS_HOLDDOWN ))
+
+    // Р’С‹Р±РѕСЂ Рџ.1: РџРµСЂРµРєР»СЋС‡РёС‚СЊ Р РµР¶РёРј С‚РµСЃС‚Р°
+    if (BUTTON_HAVE_FLAG(BUTTON_MENU_PREV, BUTTON_IS_HOLDDOWN))
     {
-      BUTTON_RESET(BUTTON_MENU_PREV);                             // Обработал событие... Сбросить статус кнопки.
+      BUTTON_RESET(BUTTON_MENU_PREV); // РћР±СЂР°Р±РѕС‚Р°Р» СЃРѕР±С‹С‚РёРµ... РЎР±СЂРѕСЃРёС‚СЊ СЃС‚Р°С‚СѓСЃ РєРЅРѕРїРєРё.
 
-      // Режим теста: 
-      //  "Одиночный замер / результат в Коде АЦП"; 
-      //  "Одиночный замер / результат Конвертировать в реальные единицы"; 
-      //  "Потоковая конвертация / результат в Коде АЦП"
-      //  "Потоковая конвертация / результат Конвертировать в реальные единицы"
-      mode = (mode+1)%4;
+      // Р РµР¶РёРј С‚РµСЃС‚Р°:
+      //  "РћРґРёРЅРѕС‡РЅС‹Р№ Р·Р°РјРµСЂ / СЂРµР·СѓР»СЊС‚Р°С‚ РІ РљРѕРґРµ РђР¦Рџ";
+      //  "РћРґРёРЅРѕС‡РЅС‹Р№ Р·Р°РјРµСЂ / СЂРµР·СѓР»СЊС‚Р°С‚ РљРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ РІ СЂРµР°Р»СЊРЅС‹Рµ РµРґРёРЅРёС†С‹";
+      //  "РџРѕС‚РѕРєРѕРІР°СЏ РєРѕРЅРІРµСЂС‚Р°С†РёСЏ / СЂРµР·СѓР»СЊС‚Р°С‚ РІ РљРѕРґРµ РђР¦Рџ"
+      //  "РџРѕС‚РѕРєРѕРІР°СЏ РєРѕРЅРІРµСЂС‚Р°С†РёСЏ / СЂРµР·СѓР»СЊС‚Р°С‚ РљРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ РІ СЂРµР°Р»СЊРЅС‹Рµ РµРґРёРЅРёС†С‹"
+      mode = (mode + 1) % 4;
 
-      if(mode&0x2)
+      if (mode & 0x2)
       {
-        // Сбросить "Скользящее окно" и статистику АЦП
+        // РЎР±СЂРѕСЃРёС‚СЊ "РЎРєРѕР»СЊР·СЏС‰РµРµ РѕРєРЅРѕ" Рё СЃС‚Р°С‚РёСЃС‚РёРєСѓ РђР¦Рџ
         ADC_AVG_ResetArray();
         ADS1256_TEST_Counter = 0;
         max = INT32_MIN;
         min = INT32_MAX;
-        
-        // Активировать режим "RDATAC: Read Data Continuous"  (Замечу: в этом режиме, никакие API-функции драйвера АЦП вызывать нельзя! Сперва, нужно вызвать метод ADS1256_API_StopDataContinuousMode[Synchronous], для остановки потоковой конвертации...)
+
+        // РђРєС‚РёРІРёСЂРѕРІР°С‚СЊ СЂРµР¶РёРј "RDATAC: Read Data Continuous"  (Р—Р°РјРµС‡Сѓ: РІ СЌС‚РѕРј СЂРµР¶РёРјРµ, РЅРёРєР°РєРёРµ API-С„СѓРЅРєС†РёРё РґСЂР°Р№РІРµСЂР° РђР¦Рџ РІС‹Р·С‹РІР°С‚СЊ РЅРµР»СЊР·СЏ! РЎРїРµСЂРІР°, РЅСѓР¶РЅРѕ РІС‹Р·РІР°С‚СЊ РјРµС‚РѕРґ ADS1256_API_StopDataContinuousMode[Synchronous], РґР»СЏ РѕСЃС‚Р°РЅРѕРІРєРё РїРѕС‚РѕРєРѕРІРѕР№ РєРѕРЅРІРµСЂС‚Р°С†РёРё...)
         ADS1256_API_RunDataContinuousMode();
       }
       else
       {
-        // Остановить режим "SDATAC: Stop Read Data Continuous" СИНХРОННО
-        //  (Примечание: После выполнения этой функции, АЦП вновь станет доступным к управлению!)
+        // РћСЃС‚Р°РЅРѕРІРёС‚СЊ СЂРµР¶РёРј "SDATAC: Stop Read Data Continuous" РЎРРќРҐР РћРќРќРћ
+        //  (РџСЂРёРјРµС‡Р°РЅРёРµ: РџРѕСЃР»Рµ РІС‹РїРѕР»РЅРµРЅРёСЏ СЌС‚РѕР№ С„СѓРЅРєС†РёРё, РђР¦Рџ РІРЅРѕРІСЊ СЃС‚Р°РЅРµС‚ РґРѕСЃС‚СѓРїРЅС‹Рј Рє СѓРїСЂР°РІР»РµРЅРёСЋ!)
         ADS1256_API_StopDataContinuousModeSynchronous();
 
-        // Сбросить "Скользящее окно" и статистику АЦП
+        // РЎР±СЂРѕСЃРёС‚СЊ "РЎРєРѕР»СЊР·СЏС‰РµРµ РѕРєРЅРѕ" Рё СЃС‚Р°С‚РёСЃС‚РёРєСѓ РђР¦Рџ
         ADC_AVG_ResetArray();
         ADS1256_TEST_Counter = 0;
         max = INT32_MIN;
@@ -90,80 +88,75 @@ TControlMode Control_MODE_AdcTest(void)
       }
     }
 
-    // Выбор П.2: Обнулить Счетчики
-    if(BUTTON_HAVE_FLAG( BUTTON_MENU_OK, BUTTON_IS_HOLDDOWN ))
+    // Р’С‹Р±РѕСЂ Рџ.2: РћР±РЅСѓР»РёС‚СЊ РЎС‡РµС‚С‡РёРєРё
+    if (BUTTON_HAVE_FLAG(BUTTON_MENU_OK, BUTTON_IS_HOLDDOWN))
     {
-      BUTTON_RESET(BUTTON_MENU_OK);                           // Обработал событие... Сбросить статус кнопки.
-      
-      // Сбросить "Скользящее окно" и статистику АЦП
+      BUTTON_RESET(BUTTON_MENU_OK); // РћР±СЂР°Р±РѕС‚Р°Р» СЃРѕР±С‹С‚РёРµ... РЎР±СЂРѕСЃРёС‚СЊ СЃС‚Р°С‚СѓСЃ РєРЅРѕРїРєРё.
+
+      // РЎР±СЂРѕСЃРёС‚СЊ "РЎРєРѕР»СЊР·СЏС‰РµРµ РѕРєРЅРѕ" Рё СЃС‚Р°С‚РёСЃС‚РёРєСѓ РђР¦Рџ
       ADC_AVG_ResetArray();
       ADS1256_TEST_Counter = 0;
       max = INT32_MIN;
       min = INT32_MAX;
     }
-    
-    // Выбор П.3: Выход из Теста
-    if(BUTTON_HAVE_FLAG( BUTTON_MENU_NEXT, BUTTON_IS_HOLDDOWN ))
+
+    // Р’С‹Р±РѕСЂ Рџ.3: Р’С‹С…РѕРґ РёР· РўРµСЃС‚Р°
+    if (BUTTON_HAVE_FLAG(BUTTON_MENU_NEXT, BUTTON_IS_HOLDDOWN))
     {
-      BUTTON_RESET(BUTTON_MENU_NEXT);                                       // Обработал событие... Сбросить статус кнопки.
-      ADS1256_API_SetDataRegistrator(ADS1256_TEST_OriginalDataRegistrator); // Восстановить Регистратор данных, который был установлен до входа в Экран Теста
-      return CONTROL_MODE_DEFAULT;                                          // Вернуть интерфейс на Экран, по-умолчанию
+      BUTTON_RESET(BUTTON_MENU_NEXT);                                       // РћР±СЂР°Р±РѕС‚Р°Р» СЃРѕР±С‹С‚РёРµ... РЎР±СЂРѕСЃРёС‚СЊ СЃС‚Р°С‚СѓСЃ РєРЅРѕРїРєРё.
+      ADS1256_API_SetDataRegistrator(ADS1256_TEST_OriginalDataRegistrator); // Р’РѕСЃСЃС‚Р°РЅРѕРІРёС‚СЊ Р РµРіРёСЃС‚СЂР°С‚РѕСЂ РґР°РЅРЅС‹С…, РєРѕС‚РѕСЂС‹Р№ Р±С‹Р» СѓСЃС‚Р°РЅРѕРІР»РµРЅ РґРѕ РІС…РѕРґР° РІ Р­РєСЂР°РЅ РўРµСЃС‚Р°
+      return CONTROL_MODE_DEFAULT;                                          // Р’РµСЂРЅСѓС‚СЊ РёРЅС‚РµСЂС„РµР№СЃ РЅР° Р­РєСЂР°РЅ, РїРѕ-СѓРјРѕР»С‡Р°РЅРёСЋ
     }
-    
-    
-    // В режиме "Одиночного запроса" требуется вручную прочитать Замер и передать его Регистратору
-    if(!ADS1256_API_IfDataContinuousMode())
+
+    // Р’ СЂРµР¶РёРјРµ "РћРґРёРЅРѕС‡РЅРѕРіРѕ Р·Р°РїСЂРѕСЃР°" С‚СЂРµР±СѓРµС‚СЃСЏ РІСЂСѓС‡РЅСѓСЋ РїСЂРѕС‡РёС‚Р°С‚СЊ Р—Р°РјРµСЂ Рё РїРµСЂРµРґР°С‚СЊ РµРіРѕ Р РµРіРёСЃС‚СЂР°С‚РѕСЂСѓ
+    if (!ADS1256_API_IfDataContinuousMode())
     {
-      //value = ADS1256_API_ConvertDataOnce();
+      // value = ADS1256_API_ConvertDataOnce();
       value = ADS1256_API_ReadLastData();
-      ADC_AVG_IncludeSample(value);           //Рекомендация: усреднять "Скользящим окном" лучше сырые данные, в Коде АЦП (так выше точность). А уже потом, обработанные показатели конвертировать в Реальные единицы (если требуется).
+      ADC_AVG_IncludeSample(value); // Р РµРєРѕРјРµРЅРґР°С†РёСЏ: СѓСЃСЂРµРґРЅСЏС‚СЊ "РЎРєРѕР»СЊР·СЏС‰РёРј РѕРєРЅРѕРј" Р»СѓС‡С€Рµ СЃС‹СЂС‹Рµ РґР°РЅРЅС‹Рµ, РІ РљРѕРґРµ РђР¦Рџ (С‚Р°Рє РІС‹С€Рµ С‚РѕС‡РЅРѕСЃС‚СЊ). Рђ СѓР¶Рµ РїРѕС‚РѕРј, РѕР±СЂР°Р±РѕС‚Р°РЅРЅС‹Рµ РїРѕРєР°Р·Р°С‚РµР»Рё РєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ РІ Р РµР°Р»СЊРЅС‹Рµ РµРґРёРЅРёС†С‹ (РµСЃР»Рё С‚СЂРµР±СѓРµС‚СЃСЏ).
       ADS1256_TEST_Counter++;
     }
     else
       value = 0;
-    
-    // Статистическая обработка Результата
+
+    // РЎС‚Р°С‚РёСЃС‚РёС‡РµСЃРєР°СЏ РѕР±СЂР°Р±РѕС‚РєР° Р РµР·СѓР»СЊС‚Р°С‚Р°
     average = ADC_AVG_GetMovingAverage();
-    if(average)
+    if (average)
     {
-      if(max < average)
-        max = average;      
-      if(min > average)
+      if (max < average)
+        max = average;
+      if (min > average)
         min = average;
     }
     ADC_AVG_CalcArrayStatistics();
-    
-    
-    // Рендеринг дисплея
-    #define _CNV(value)  ((mode&0x1)?ADC_CNV_ConvertCode2Real(value)     :(value))
-    #define _CNVD(value) ((mode&0x1)?ADC_CNV_ConvertDeltaCode2Real(value):(value))
-    
-    if(ADS1256_API_IfDataContinuousMode())
+
+// Р РµРЅРґРµСЂРёРЅРі РґРёСЃРїР»РµСЏ
+#define _CNV(value) ((mode & 0x1) ? ADC_CNV_ConvertCode2Real(value) : (value))
+#define _CNVD(value) ((mode & 0x1) ? ADC_CNV_ConvertDeltaCode2Real(value) : (value))
+
+    if (ADS1256_API_IfDataContinuousMode())
       sprintf(s1, "NOW  _DATAC_ C%6d", ADS1256_TEST_Counter);
     else
-      sprintf(s1, "NOW %8d C%6d", _CNV(value),   ADS1256_TEST_Counter);
-    
+      sprintf(s1, "NOW %8d C%6d", _CNV(value), ADS1256_TEST_Counter);
+
     sprintf(s2, "AVG %8d S%6d", _CNV(average), _CNVD(ADC_AVG_GetArrayStdDev()));
     sprintf(s3, "History Window Avg.D");
-    sprintf(s4, "%6d %6d %6d", _CNV(ADC_AVG_GetHistoricalMax()) - _CNV(ADC_AVG_GetHistoricalMin()),  //выражение эквивалентно: _CNVD(ADC_AVG_GetHistoricalMax() - ADC_AVG_GetHistoricalMin())
-                               _CNV(ADC_AVG_GetArrayMax())      - _CNV(ADC_AVG_GetArrayMin())     ,
-                               _CNV(max)                        - _CNV(min)                       );
+    sprintf(s4, "%6d %6d %6d", _CNV(ADC_AVG_GetHistoricalMax()) - _CNV(ADC_AVG_GetHistoricalMin()), // РІС‹СЂР°Р¶РµРЅРёРµ СЌРєРІРёРІР°Р»РµРЅС‚РЅРѕ: _CNVD(ADC_AVG_GetHistoricalMax() - ADC_AVG_GetHistoricalMin())
+            _CNV(ADC_AVG_GetArrayMax()) - _CNV(ADC_AVG_GetArrayMin()),
+            _CNV(max) - _CNV(min));
 
-    // Альтернативно, вывод "дельт" и "абсолютных" значений оценок:
-    //sprintf(s3, "H%3d %7d %-7d", _CNVD(ADC_AVG_GetHistoricalMax() - ADC_AVG_GetHistoricalMin()), _CNV(ADC_AVG_GetHistoricalMin()), _CNV(ADC_AVG_GetHistoricalMax()));
-    //sprintf(s4, "A%3d %7d %-7d", _CNVD(ADC_AVG_GetArrayMax()      - ADC_AVG_GetArrayMin()),      _CNV(ADC_AVG_GetArrayMin()),      _CNV(ADC_AVG_GetArrayMax()));
-    #undef _CNV
-    
-    
-    // Обновить дисплей
-    Display_Show_Message( .Line1 = s1,
-                          .Line2 = s2,
-                          .Line3 = s3,
-                          .Line4 = s4 );
-    
-    // Ожидание (задержка в суперцикле потока)
+// РђР»СЊС‚РµСЂРЅР°С‚РёРІРЅРѕ, РІС‹РІРѕРґ "РґРµР»СЊС‚" Рё "Р°Р±СЃРѕР»СЋС‚РЅС‹С…" Р·РЅР°С‡РµРЅРёР№ РѕС†РµРЅРѕРє:
+// sprintf(s3, "H%3d %7d %-7d", _CNVD(ADC_AVG_GetHistoricalMax() - ADC_AVG_GetHistoricalMin()), _CNV(ADC_AVG_GetHistoricalMin()), _CNV(ADC_AVG_GetHistoricalMax()));
+// sprintf(s4, "A%3d %7d %-7d", _CNVD(ADC_AVG_GetArrayMax()      - ADC_AVG_GetArrayMin()),      _CNV(ADC_AVG_GetArrayMin()),      _CNV(ADC_AVG_GetArrayMax()));
+#undef _CNV
+
+    // РћР±РЅРѕРІРёС‚СЊ РґРёСЃРїР»РµР№
+    Display_Show_Message(.Line1 = s1,
+                         .Line2 = s2,
+                         .Line3 = s3,
+                         .Line4 = s4);
+
+    // РћР¶РёРґР°РЅРёРµ (Р·Р°РґРµСЂР¶РєР° РІ СЃСѓРїРµСЂС†РёРєР»Рµ РїРѕС‚РѕРєР°)
     osDelay(20);
   }
 }
-
-
